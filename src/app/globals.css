@@ -1,26 +1,70 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode */
+@variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #ffffff;
+  --bg-secondary: #f8f8f8;
+  --fg: #111111;
+  --fg-muted: #6b7280;
+  --border: #e5e7eb;
+  --card-bg: #ffffff;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --bg: #050d1f;
+  --bg-secondary: #0a1628;
+  --fg: #e2e8f0;
+  --fg-muted: #7aa2d4;
+  --border: #1a3a6b;
+  --card-bg: #0d1f3c;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-geist-sans), Arial, sans-serif;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* 3D Book card */
+.book-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+}
+
+.book-3d:hover {
+  transform: perspective(800px) rotateY(-12deg) rotateX(4deg) translateY(-8px) scale(1.03);
+  box-shadow:
+    12px 20px 40px rgba(0, 0, 0, 0.25),
+    4px 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.dark .book-3d:hover {
+  box-shadow:
+    12px 20px 50px rgba(0, 20, 80, 0.6),
+    4px 8px 20px rgba(10, 60, 180, 0.25);
+}
+
+/* Book spine illusion */
+.book-3d::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 6px;
+  height: calc(100% - 4px);
+  background: rgba(0, 0, 0, 0.2);
+  transform: translateX(-6px) rotateY(-90deg);
+  transform-origin: right;
+  border-radius: 1px 0 0 1px;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.book-3d:hover::after {
+  opacity: 1;
 }
