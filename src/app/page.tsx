@@ -7,24 +7,55 @@ interface OLBook {
   title: string;
   author_name?: string[];
   cover_i?: number;
-  first_publish_year?: number;
+  cover_edition_key?: string;
 }
 
-async function getTrendingBooks(): Promise<OLBook[]> {
-  try {
-    const res = await fetch(
-      "https://openlibrary.org/trending/weekly.json?limit=60",
-      { next: { revalidate: 3600 } }
-    );
-    const data = await res.json();
-    return (data.works ?? []).filter((b: OLBook) => b.cover_i).slice(0, 48);
-  } catch {
-    return [];
-  }
+interface Category {
+  label: string;
+  books: OLBook[];
+}
+
+async function fetchTrending(): Promise<OLBook[]> {
+  const res = await fetch("https://openlibrary.org/trending/weekly.json?limit=24", {
+    next: { revalidate: 3600 },
+  });
+  const data = await res.json();
+  return (data.works ?? []).filter((b: OLBook) => b.cover_i).slice(0, 20);
+}
+
+async function fetchSubject(subject: string, limit = 20): Promise<OLBook[]> {
+  const res = await fetch(
+    `https://openlibrary.org/subjects/${subject}.json?limit=30`,
+    { next: { revalidate: 3600 } }
+  );
+  const data = await res.json();
+  return (data.works ?? [])
+    .filter((b: OLBook) => b.cover_i)
+    .slice(0, limit);
+}
+
+async function getCategories(): Promise<Category[]> {
+  const [trending, fiction, mystery, scifi, romance, nonfiction] = await Promise.all([
+    fetchTrending(),
+    fetchSubject("popular_fiction"),
+    fetchSubject("mystery_and_detective_stories"),
+    fetchSubject("science_fiction"),
+    fetchSubject("romance"),
+    fetchSubject("biography"),
+  ]);
+
+  return [
+    { label: "Trending this week", books: trending },
+    { label: "Fiction", books: fiction },
+    { label: "Mystery & Thriller", books: mystery },
+    { label: "Sci-Fi & Fantasy", books: scifi },
+    { label: "Romance", books: romance },
+    { label: "Biography & Memoir", books: nonfiction },
+  ].filter((c) => c.books.length > 0);
 }
 
 export default async function Home() {
-  const books = await getTrendingBooks();
+  const categories = await getCategories();
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: "var(--bg)", color: "var(--fg)" }}>
@@ -36,11 +67,7 @@ export default async function Home() {
         <span className="text-xl font-bold tracking-tight">Readable</span>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <Link
-            href="/login"
-            className="text-sm"
-            style={{ color: "var(--fg-muted)" }}
-          >
+          <Link href="/login" className="text-sm" style={{ color: "var(--fg-muted)" }}>
             Sign in
           </Link>
           <Link
@@ -54,7 +81,7 @@ export default async function Home() {
       </nav>
 
       {/* Hero */}
-      <section className="text-center px-6 pt-20 pb-12">
+      <section className="text-center px-6 pt-16 pb-10">
         <h1 className="text-5xl font-bold tracking-tight max-w-2xl mx-auto leading-tight">
           Track every book you&apos;ve ever read.
         </h1>
@@ -79,35 +106,50 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 3D Book Grid */}
-      <section className="flex-1 px-6 pb-16">
-        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
-          {books.map((book) => (
-            <Link
-              key={book.key}
-              href="/signup"
-              className="book-3d relative rounded overflow-hidden"
-              style={{ background: "var(--card-bg)" }}
-              title={`${book.title}${book.author_name ? " by " + book.author_name[0] : ""}`}
-            >
-              <div className="aspect-[2/3] relative">
-                <Image
-                  src={`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`}
-                  alt={book.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 25vw, (max-width: 768px) 17vw, (max-width: 1024px) 12vw, 9vw"
-                />
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/0 hover:bg-black/50 transition-all duration-300 flex items-end p-2 opacity-0 hover:opacity-100">
-                  <span className="text-white text-[10px] font-medium leading-tight line-clamp-2">
-                    {book.title}
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+      {/* Category Rows */}
+      <section className="flex-1 pb-20 space-y-10">
+        {categories.map((category) => (
+          <div key={category.label}>
+            <div className="px-8 mb-3 flex items-center justify-between">
+              <h2 className="text-base font-semibold tracking-tight">{category.label}</h2>
+              <Link
+                href="/signup"
+                className="text-xs font-medium"
+                style={{ color: "var(--fg-muted)" }}
+              >
+                See all →
+              </Link>
+            </div>
+
+            {/* Horizontal scroll row */}
+            <div className="flex gap-3 overflow-x-auto px-8 pb-3 scrollbar-hide">
+              {category.books.map((book) => (
+                <Link
+                  key={book.key}
+                  href="/signup"
+                  className="book-3d relative flex-shrink-0 rounded overflow-hidden"
+                  style={{ width: 100, background: "var(--card-bg)" }}
+                  title={`${book.title}${book.author_name ? " — " + book.author_name[0] : ""}`}
+                >
+                  <div className="relative" style={{ width: 100, height: 150 }}>
+                    <Image
+                      src={`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`}
+                      alt={book.title}
+                      fill
+                      className="object-cover"
+                      sizes="100px"
+                    />
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/50 transition-all duration-300 flex items-end p-1.5 opacity-0 hover:opacity-100">
+                      <span className="text-white text-[9px] font-medium leading-tight line-clamp-3">
+                        {book.title}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
     </div>
   );
