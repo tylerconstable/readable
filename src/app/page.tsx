@@ -13,11 +13,11 @@ interface OLBook {
 async function getTrendingBooks(): Promise<OLBook[]> {
   try {
     const res = await fetch(
-      "https://openlibrary.org/search.json?q=subject:fiction&sort=rating&limit=24&fields=key,title,author_name,cover_i,first_publish_year",
+      "https://openlibrary.org/trending/weekly.json?limit=60",
       { next: { revalidate: 3600 } }
     );
     const data = await res.json();
-    return (data.docs ?? []).filter((b: OLBook) => b.cover_i);
+    return (data.works ?? []).filter((b: OLBook) => b.cover_i).slice(0, 48);
   } catch {
     return [];
   }
@@ -80,37 +80,29 @@ export default async function Home() {
       </section>
 
       {/* 3D Book Grid */}
-      <section className="flex-1 px-8 pb-20">
-        <div className="columns-2 sm:columns-3 md:columns-4 lg:columns-6 gap-4 space-y-4">
+      <section className="flex-1 px-6 pb-16">
+        <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
           {books.map((book) => (
             <Link
               key={book.key}
               href="/signup"
-              className="book-3d block relative rounded-lg overflow-hidden break-inside-avoid"
+              className="book-3d relative rounded overflow-hidden"
               style={{ background: "var(--card-bg)" }}
               title={`${book.title}${book.author_name ? " by " + book.author_name[0] : ""}`}
             >
-              {book.cover_i ? (
+              <div className="aspect-[2/3] relative">
                 <Image
                   src={`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`}
                   alt={book.title}
-                  width={200}
-                  height={300}
-                  className="w-full h-auto block"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 25vw, (max-width: 768px) 17vw, (max-width: 1024px) 12vw, 9vw"
                 />
-              ) : (
-                <div
-                  className="w-full aspect-[2/3] flex items-center justify-center text-4xl"
-                  style={{ background: "var(--bg-secondary)" }}
-                >
-                  📚
-                </div>
-              )}
-
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors duration-300 flex items-end p-3 opacity-0 hover:opacity-100">
-                <div className="text-white text-xs font-medium leading-tight line-clamp-2">
-                  {book.title}
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/0 hover:bg-black/50 transition-all duration-300 flex items-end p-2 opacity-0 hover:opacity-100">
+                  <span className="text-white text-[10px] font-medium leading-tight line-clamp-2">
+                    {book.title}
+                  </span>
                 </div>
               </div>
             </Link>
