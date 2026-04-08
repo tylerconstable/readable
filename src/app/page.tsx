@@ -2,40 +2,68 @@ import Link from "next/link";
 import Image from "next/image";
 import ThemeToggle from "@/components/ThemeToggle";
 
-interface OLBook {
+interface TrendingBook {
   key: string;
   title: string;
   author_name?: string[];
   cover_i?: number;
-  cover_edition_key?: string;
+}
+
+interface SubjectBook {
+  key: string;
+  title: string;
+  authors?: { name: string }[];
+  cover_id?: number;
 }
 
 interface Category {
   label: string;
-  books: OLBook[];
+  books: { key: string; title: string; author: string; coverId: number }[];
 }
 
-async function fetchTrending(): Promise<OLBook[]> {
-  const res = await fetch("https://openlibrary.org/trending/weekly.json?limit=24", {
-    next: { revalidate: 3600 },
-  });
-  const data = await res.json();
-  return (data.works ?? []).filter((b: OLBook) => b.cover_i).slice(0, 20);
+async function fetchTrending() {
+  try {
+    const res = await fetch("https://openlibrary.org/trending/weekly.json?limit=30", {
+      next: { revalidate: 3600 },
+    });
+    const data = await res.json();
+    return (data.works ?? [] as TrendingBook[])
+      .filter((b: TrendingBook) => b.cover_i)
+      .slice(0, 20)
+      .map((b: TrendingBook) => ({
+        key: b.key,
+        title: b.title,
+        author: b.author_name?.[0] ?? "",
+        coverId: b.cover_i!,
+      }));
+  } catch {
+    return [];
+  }
 }
 
-async function fetchSubject(subject: string, limit = 20): Promise<OLBook[]> {
-  const res = await fetch(
-    `https://openlibrary.org/subjects/${subject}.json?limit=30`,
-    { next: { revalidate: 3600 } }
-  );
-  const data = await res.json();
-  return (data.works ?? [])
-    .filter((b: OLBook) => b.cover_i)
-    .slice(0, limit);
+async function fetchSubject(subject: string) {
+  try {
+    const res = await fetch(
+      `https://openlibrary.org/subjects/${subject}.json?limit=30`,
+      { next: { revalidate: 3600 } }
+    );
+    const data = await res.json();
+    return (data.works ?? [] as SubjectBook[])
+      .filter((b: SubjectBook) => b.cover_id)
+      .slice(0, 20)
+      .map((b: SubjectBook) => ({
+        key: b.key,
+        title: b.title,
+        author: b.authors?.[0]?.name ?? "",
+        coverId: b.cover_id!,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 async function getCategories(): Promise<Category[]> {
-  const [trending, fiction, mystery, scifi, romance, nonfiction] = await Promise.all([
+  const [trending, fiction, mystery, scifi, romance, biography] = await Promise.all([
     fetchTrending(),
     fetchSubject("popular_fiction"),
     fetchSubject("mystery_and_detective_stories"),
@@ -50,7 +78,7 @@ async function getCategories(): Promise<Category[]> {
     { label: "Mystery & Thriller", books: mystery },
     { label: "Sci-Fi & Fantasy", books: scifi },
     { label: "Romance", books: romance },
-    { label: "Biography & Memoir", books: nonfiction },
+    { label: "Biography & Memoir", books: biography },
   ].filter((c) => c.books.length > 0);
 }
 
@@ -112,34 +140,36 @@ export default async function Home() {
           <div key={category.label}>
             <div className="px-8 mb-3 flex items-center justify-between">
               <h2 className="text-base font-semibold tracking-tight">{category.label}</h2>
-              <Link
-                href="/signup"
-                className="text-xs font-medium"
-                style={{ color: "var(--fg-muted)" }}
-              >
+              <Link href="/signup" className="text-xs font-medium" style={{ color: "var(--fg-muted)" }}>
                 See all →
               </Link>
             </div>
 
-            {/* Horizontal scroll row */}
-            <div className="flex gap-3 overflow-x-auto px-8 pb-3 scrollbar-hide">
+            {/* Scrollable row */}
+            <div
+              className="flex gap-3 px-8"
+              style={{ overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}
+            >
               {category.books.map((book) => (
                 <Link
                   key={book.key}
                   href="/signup"
-                  className="book-3d relative flex-shrink-0 rounded overflow-hidden"
+                  className="book-3d relative flex-none rounded overflow-hidden"
                   style={{ width: 100, background: "var(--card-bg)" }}
-                  title={`${book.title}${book.author_name ? " — " + book.author_name[0] : ""}`}
+                  title={`${book.title}${book.author ? " — " + book.author : ""}`}
                 >
                   <div className="relative" style={{ width: 100, height: 150 }}>
                     <Image
-                      src={`https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`}
+                      src={`https://covers.openlibrary.org/b/id/${book.coverId}-M.jpg`}
                       alt={book.title}
                       fill
                       className="object-cover"
                       sizes="100px"
                     />
-                    <div className="absolute inset-0 bg-black/0 hover:bg-black/50 transition-all duration-300 flex items-end p-1.5 opacity-0 hover:opacity-100">
+                    <div
+                      className="absolute inset-0 flex items-end p-1.5 opacity-0 hover:opacity-100 transition-opacity duration-300"
+                      style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 60%)" }}
+                    >
                       <span className="text-white text-[9px] font-medium leading-tight line-clamp-3">
                         {book.title}
                       </span>
